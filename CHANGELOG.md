@@ -30,3 +30,5 @@
   `resource.yaml`, `metadata.profile.json`, and `README.md`.
 - Clarified that ingest/update workflows should run local embeddings by
   default unless the user explicitly disables them.
+- Wired published `skillbag-media` into `resource-sync-index` so audio/video
+  originals can generate local media transcripts under `derivatives/media/`.

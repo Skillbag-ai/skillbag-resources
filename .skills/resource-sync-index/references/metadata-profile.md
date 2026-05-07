@@ -101,8 +101,12 @@ Rules:
   portable skill instructions.
 - `transcripts.processor_preference` is advisory. It lets the resource
   pipeline prefer available processors that are in scope for the project, while
-  still allowing future skillbags such as media processing to plug in without
+  allowing installed processors such as `document-to-markdown-transcript`,
+  `extract-structured-tables`, and `media-transcript` to plug in without
   changing the scaffold.
+- For high-value screen-share or walkthrough recordings, configure
+  `transcripts.processor_command` to call `media-recording-timeline` from
+  `skillbag-media` instead of the cheaper default `media-transcript`.
 - `transcripts.processor_command` is deterministic. When present, the sync
   script uses it before fallback auto-discovery. Supported placeholders:
   `{input}`, `{output}`, and `{language}`.

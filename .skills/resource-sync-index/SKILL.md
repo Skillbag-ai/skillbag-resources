@@ -1,6 +1,6 @@
 ---
 name: resource-sync-index
-description: Sync, index, refresh, rebuild, transcribe, summarize, chunk, or embed added, changed, or removed files in a knowledge base, corpus, reference library, context library, data room, or resource root. #use/resource-scaffold #use/document-to-markdown-transcript #use/skillbag-python-ensure
+description: Sync, index, refresh, rebuild, transcribe, summarize, chunk, or embed added, changed, or removed files in a knowledge base, corpus, reference library, context library, data room, or resource root. #use/resource-scaffold #use/document-to-markdown-transcript #use/media-transcript #use/skillbag-python-ensure
 dependencies:
   - name: resource-scaffold
     required: true
@@ -10,6 +10,10 @@ dependencies:
     required: false
   - name: extract-structured-tables
     source: git@github.com:Skillbag-ai/skillbag-docs.git
+    version: main
+    required: false
+  - name: media-transcript
+    source: git@github.com:Skillbag-ai/skillbag-media.git
     version: main
     required: false
   - name: skillbag-python-ensure
@@ -86,10 +90,11 @@ optional:
   removed from state, summaries, chunks, and SQLite/LanceDB outputs without
   deleting the files from disk. Use `report` for audits and `prune` only when
   the user explicitly wants orphaned generated derivatives physically deleted.
-- The bundled script auto-discovers a sibling `skillbag-docs`
-  `document-to-markdown-transcript` helper script as the default fallback.
-  Pass `--transcript-script` or configure `metadata.profile.json` to override
-  it with a better current-project processor.
+- The bundled script auto-discovers sibling transcript helpers by file type:
+  `skillbag-docs` `document-to-markdown-transcript` for documents/images and
+  `skillbag-media` `media-transcript` for audio/video. Pass
+  `--transcript-script` or configure `metadata.profile.json` to override this
+  with a better current-project processor.
 - Use `--chunk-policy all` for the first local chunk build, then
   `--chunk-policy changed-only` for normal delta runs.
 - Use `--embed` to pipe changed text chunks through the configured local
@@ -123,8 +128,8 @@ optional:
   - unchanged
 - Before chunking, ensure usable text derivatives exist when possible.
   Delegate extraction to the best matching processor from the current project
-  skill set, then to dependency skills such as `skillbag-docs`, instead of
-  duplicating parsers.
+  skill set, then to dependency skills such as `skillbag-docs` and
+  `skillbag-media`, instead of duplicating parsers.
 - Generate compact local Hugging Face summaries for text-like source and
   derivative records so future agents can search `store/state/summaries.jsonl`
   cheaply before reading full chunks from a large corpus. If

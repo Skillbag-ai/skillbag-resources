@@ -97,6 +97,7 @@ Behavior:
 - detects added, changed, removed, and unchanged files
 - updates only changed material during normal syncs
 - can use `skillbag-docs` for document-to-markdown transcripts
+- can use `skillbag-media` for local audio/video transcripts
 - creates compact summaries before full chunk search
 - uses local Hugging Face models for embeddings and summaries when configured
 - keeps generated derivatives from outliving removed originals unless the
@@ -197,8 +198,8 @@ workspace, usually alongside:
   runtime helpers
 - [`skillbag-docs`](https://github.com/Skillbag-ai/skillbag-docs) for document
   transcripts, OCR, table extraction, diagrams, and Word document generation
-- `skillbag-media` for local audio and video processing when that repository
-  is available
+- [`skillbag-media`](https://github.com/Skillbag-ai/skillbag-media) for local
+  audio and video processing
 
 Once installed, users can ask in natural language. For example, an agent with
 these skills available can understand that "create a knowledge

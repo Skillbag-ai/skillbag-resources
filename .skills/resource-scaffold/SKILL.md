@@ -100,6 +100,8 @@ resources/
   - summary defaults
   - chunking defaults
   - embedding model override when different from `resource.yaml`
+  - transcript processor preferences that include document, table, and media
+    processors when the corresponding public SkillBags are installed
 - `store/sqlite/` is the portable fallback database location when LanceDB is
   unavailable.
 - Do not define project names, organization names, knowledge categories, or

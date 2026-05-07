@@ -98,6 +98,7 @@ def metadata_profile(purpose: str, embedding_model: str) -> str:
                 "document-to-markdown-transcript",
                 "extract-structured-tables",
                 "media-transcript",
+                "media-recording-timeline",
             ],
         },
     }
@@ -116,6 +117,7 @@ This folder is a local SkillBag resource root.
 - Put canonical copied source files under `sources/originals/`.
 - Put external pointers or manifests under `sources/external/`.
 - Put generated transcripts and structured derivatives under `derivatives/`.
+- Put generated audio/video transcripts and timelines under `derivatives/media/`.
 - Resource state, chunks, and optional vector stores live under `store/`.
 - Use `resource-sync-index` to refresh state and indexes.
 """

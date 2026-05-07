@@ -28,7 +28,7 @@ from typing import Any
 
 
 TEXT_SUFFIXES = {".md", ".txt", ".csv", ".json", ".jsonl", ".yaml", ".yml"}
-TRANSCRIPT_SOURCE_SUFFIXES = {
+DOCUMENT_TRANSCRIPT_SOURCE_SUFFIXES = {
     ".pdf",
     ".docx",
     ".doc",
@@ -42,6 +42,21 @@ TRANSCRIPT_SOURCE_SUFFIXES = {
     ".bmp",
     ".gif",
 }
+MEDIA_TRANSCRIPT_SOURCE_SUFFIXES = {
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".aac",
+    ".flac",
+    ".ogg",
+    ".mp4",
+    ".mov",
+    ".mkv",
+    ".avi",
+    ".webm",
+    ".m4v",
+}
+TRANSCRIPT_SOURCE_SUFFIXES = DOCUMENT_TRANSCRIPT_SOURCE_SUFFIXES | MEDIA_TRANSCRIPT_SOURCE_SUFFIXES
 SCAN_ROOTS = [
     "sources/originals",
     "sources/external",
@@ -247,14 +262,19 @@ def transcript_candidates(resource_root: Path, source_path: Path) -> list[Path]:
     if not rel.as_posix().startswith("sources/originals/"):
         return []
     tail = Path(*rel.parts[2:])
+    derivative_root = (
+        "derivatives/media"
+        if source_path.suffix.lower() in MEDIA_TRANSCRIPT_SOURCE_SUFFIXES
+        else "derivatives/transcripts"
+    )
     candidates = [
-        resource_root / "derivatives/transcripts" / tail.with_suffix(".md"),
+        resource_root / derivative_root / tail.with_suffix(".md"),
     ]
     parts = tail.parts
     if "raw" in parts:
         raw_idx = parts.index("raw")
         collapsed = Path(*parts[:raw_idx], *parts[raw_idx + 1:]).with_suffix(".md")
-        candidates.insert(0, resource_root / "derivatives/transcripts" / collapsed)
+        candidates.insert(0, resource_root / derivative_root / collapsed)
     return candidates
 
 
@@ -420,7 +440,7 @@ def find_existing_transcript(candidates: list[Path]) -> Path | None:
     return None
 
 
-def default_transcript_script() -> Path | None:
+def default_document_transcript_script() -> Path | None:
     # resource-sync-index/scripts/resource_sync_index.py ->
     # skillbag-resources/.skills/resource-sync-index/scripts -> skillbag
     workspace_root = Path(__file__).resolve().parents[4]
@@ -429,6 +449,23 @@ def default_transcript_script() -> Path | None:
         / "skillbag-docs/.skills/document-to-markdown-transcript/scripts/document_to_markdown_transcript.py"
     )
     return script if script.exists() else None
+
+
+def default_media_transcript_script() -> Path | None:
+    # resource-sync-index/scripts/resource_sync_index.py ->
+    # skillbag-resources/.skills/resource-sync-index/scripts -> skillbag
+    workspace_root = Path(__file__).resolve().parents[4]
+    script = (
+        workspace_root
+        / "skillbag-media/.skills/media-transcript/scripts/media_transcript.py"
+    )
+    return script if script.exists() else None
+
+
+def media_language(language: str) -> str:
+    if language.lower() in {"eng", "en"}:
+        return "english"
+    return language
 
 
 def profile_transcript_command(profile: dict[str, Any]) -> list[str] | None:
@@ -454,6 +491,55 @@ def build_transcript_command(
     ]
 
 
+def build_default_transcript_command(
+    source_path: Path,
+    target_path: Path,
+    language: str,
+    transcript_script: Path | None,
+) -> tuple[list[str] | None, str | None]:
+    if transcript_script is not None:
+        return [
+            "python3",
+            str(transcript_script),
+            str(source_path),
+            str(target_path),
+            "--language",
+            language,
+            "--overwrite",
+        ], None
+
+    if source_path.suffix.lower() in MEDIA_TRANSCRIPT_SOURCE_SUFFIXES:
+        script = default_media_transcript_script()
+        if script is None:
+            return None, "no media-transcript processor found; install skillbag-media or configure transcripts.processor_command"
+        return [
+            "python3",
+            str(script),
+            "--input",
+            str(source_path),
+            "--output",
+            str(target_path),
+            "--language",
+            media_language(language),
+            "--backend",
+            "hf",
+            "--overwrite",
+        ], None
+
+    script = default_document_transcript_script()
+    if script is None:
+        return None, "no document-to-markdown transcript processor found; install skillbag-docs or configure transcripts.processor_command"
+    return [
+        "python3",
+        str(script),
+        str(source_path),
+        str(target_path),
+        "--language",
+        language,
+        "--overwrite",
+    ], None
+
+
 def ensure_transcripts(
     resource_root: Path,
     profile: dict[str, Any],
@@ -464,7 +550,6 @@ def ensure_transcripts(
     if policy == "skip":
         return {"policy": policy, "needed": 0, "generated": 0, "stale": 0, "missing": 0, "errors": []}
 
-    script = transcript_script or default_transcript_script()
     records = []
     errors = []
     stale = 0
@@ -508,18 +593,10 @@ def ensure_transcripts(
         if configured_command:
             command = build_transcript_command(configured_command, source_path, target, language)
         else:
-            if script is None:
-                errors.append({**record, "error": "no transcript processor command or document-to-markdown fallback script found"})
+            command, error = build_default_transcript_command(source_path, target, language, transcript_script)
+            if command is None:
+                errors.append({**record, "error": error or "no transcript processor command found"})
                 continue
-            command = [
-                "python3",
-                str(script),
-                str(source_path),
-                str(target),
-                "--language",
-                language,
-                "--overwrite",
-            ]
         try:
             subprocess.run(command, check=True, capture_output=True, text=True)
             generated += 1
@@ -583,7 +660,7 @@ def is_text_index_candidate(record: FileRecord) -> bool:
     rel = Path(record.target_path)
     rel_text = rel.as_posix()
     return rel.suffix.lower() in TEXT_SUFFIXES and (
-        record.kind in {"transcript", "structured", "normalized", "metadata-export"}
+        record.kind in {"transcript", "structured", "media-derivative", "normalized", "metadata-export"}
         or rel_text.startswith("sources/originals/")
     )
 
