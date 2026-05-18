@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- Added EPUB originals to `resource-sync-index` document transcript discovery
+  so they can be converted through `skillbag-docs` and embedded when `pandoc`
+  is available.
+
 ## 0.1.0
 
 - Initial resource skillbag scaffold.

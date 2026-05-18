@@ -96,7 +96,8 @@ Behavior:
 
 - detects added, changed, removed, and unchanged files
 - updates only changed material during normal syncs
-- can use `skillbag-docs` for document-to-markdown transcripts
+- can use `skillbag-docs` for document-to-markdown transcripts, including
+  EPUB when `pandoc` is available
 - can use `skillbag-media` for local audio/video transcripts
 - creates compact summaries before full chunk search
 - uses local Hugging Face models for embeddings and summaries when configured

@@ -30,6 +30,7 @@ from typing import Any
 TEXT_SUFFIXES = {".md", ".txt", ".csv", ".json", ".jsonl", ".yaml", ".yml"}
 DOCUMENT_TRANSCRIPT_SOURCE_SUFFIXES = {
     ".pdf",
+    ".epub",
     ".docx",
     ".doc",
     ".odt",

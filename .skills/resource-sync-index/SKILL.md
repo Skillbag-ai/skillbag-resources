@@ -23,7 +23,7 @@ dependencies:
 allowed-tools: python3 python
 metadata:
   author: backupdev
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 ## Parameters
