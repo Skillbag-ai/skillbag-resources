@@ -33,7 +33,7 @@ folder naming, taxonomy, or retention policy.
 
 ## Available Skills
 
-### [resource-scaffold](./.skills/resource-scaffold/SKILL.md)
+### [skillbag-resource-scaffold](./.skills/skillbag-resource-scaffold/SKILL.md)
 
 Creates or validates a portable resource root. The scaffold records what the
 knowledge base is for, where originals live, where generated derivatives live,
@@ -50,7 +50,7 @@ Key parameters:
 - `backend` defaults to `lancedb`
 - `embedding-model` defaults to `sentence-transformers/all-MiniLM-L6-v2`
 
-### [resource-ingest](./.skills/resource-ingest/SKILL.md)
+### [skillbag-resource-ingest](./.skills/skillbag-resource-ingest/SKILL.md)
 
 Adds material to an existing resource root. It handles both clean inputs and
 messy drops by classifying files before placing them in the knowledge base.
@@ -72,9 +72,9 @@ Behavior:
 - keeps canonical originals separate from generated derivatives
 - records ingest events for later audit
 - leaves transcript generation, summaries, chunks, and embeddings to
-  `resource-sync-index`
+  `skillbag-resource-sync-index`
 
-### [resource-sync-index](./.skills/resource-sync-index/SKILL.md)
+### [skillbag-resource-sync-index](./.skills/skillbag-resource-sync-index/SKILL.md)
 
 Refreshes the resource store after files are added, changed, removed, or
 replaced. It creates the cheap discovery layer: transcripts where available,
@@ -104,7 +104,7 @@ Behavior:
 - keeps generated derivatives from outliving removed originals unless the
   workspace explicitly wants that
 
-### [resource-query](./.skills/resource-query/SKILL.md)
+### [skillbag-resource-query](./.skills/skillbag-resource-query/SKILL.md)
 
 Searches a local resource store by metadata, summaries, keywords, vector
 similarity, or hybrid ranking.
@@ -127,7 +127,7 @@ Behavior:
 - supports exact identifiers and row-level evidence for structured references
 - treats vector ranking as a candidate signal, not final truth
 
-### [resource-update](./.skills/resource-update/SKILL.md)
+### [skillbag-resource-update](./.skills/skillbag-resource-update/SKILL.md)
 
 Removes, replaces, updates, or supersedes canonical originals in a resource
 root, then refreshes the derived transcripts, summaries, chunks, embeddings,

@@ -6,8 +6,8 @@ or archival taxonomy.
 
 ## Design Rules
 
-- Put resource-root structure in `resource-scaffold`.
-- Make other skills depend on `resource-scaffold` instead of creating their own
+- Put resource-root structure in `skillbag-resource-scaffold`.
+- Make other skills depend on `skillbag-resource-scaffold` instead of creating their own
   folder trees.
 - Keep ingestion separate from indexing. Ingestion places or stages files;
   indexing detects file changes, refreshes metadata, and updates embeddings.

@@ -442,8 +442,8 @@ def find_existing_transcript(candidates: list[Path]) -> Path | None:
 
 
 def default_document_transcript_script() -> Path | None:
-    # resource-sync-index/scripts/resource_sync_index.py ->
-    # skillbag-resources/.skills/resource-sync-index/scripts -> skillbag
+    # skillbag-resource-sync-index/scripts/resource_sync_index.py ->
+    # skillbag-resources/.skills/skillbag-resource-sync-index/scripts -> skillbag
     workspace_root = Path(__file__).resolve().parents[4]
     script = (
         workspace_root
@@ -453,8 +453,8 @@ def default_document_transcript_script() -> Path | None:
 
 
 def default_media_transcript_script() -> Path | None:
-    # resource-sync-index/scripts/resource_sync_index.py ->
-    # skillbag-resources/.skills/resource-sync-index/scripts -> skillbag
+    # skillbag-resource-sync-index/scripts/resource_sync_index.py ->
+    # skillbag-resources/.skills/skillbag-resource-sync-index/scripts -> skillbag
     workspace_root = Path(__file__).resolve().parents[4]
     script = (
         workspace_root

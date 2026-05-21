@@ -119,7 +119,7 @@ This folder is a local SkillBag resource root.
 - Put generated transcripts and structured derivatives under `derivatives/`.
 - Put generated audio/video transcripts and timelines under `derivatives/media/`.
 - Resource state, chunks, and optional vector stores live under `store/`.
-- Use `resource-sync-index` to refresh state and indexes.
+- Use `skillbag-resource-sync-index` to refresh state and indexes.
 """
 
 

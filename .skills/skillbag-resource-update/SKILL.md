@@ -1,12 +1,12 @@
 ---
-name: resource-update
-description: Remove, replace, update, supersede, or version canonical originals in a knowledge base, corpus, reference library, context library, data room, or resource root, then refresh derived transcripts, summaries, chunks, and indexes. #use/resource-scaffold #use/resource-ingest #use/resource-sync-index #use/skillbag-python-ensure
+name: skillbag-resource-update
+description: Remove, replace, update, supersede, or version canonical originals in a knowledge base, corpus, reference library, context library, data room, or resource root, then refresh derived transcripts, summaries, chunks, and indexes. #use/skillbag-resource-scaffold #use/skillbag-resource-ingest #use/skillbag-resource-sync-index #use/skillbag-python-ensure
 dependencies:
-  - name: resource-scaffold
+  - name: skillbag-resource-scaffold
     required: true
-  - name: resource-ingest
+  - name: skillbag-resource-ingest
     required: false
-  - name: resource-sync-index
+  - name: skillbag-resource-sync-index
     required: true
   - name: skillbag-python-ensure
     source: git@github.com:Skillbag-ai/skillbag-utils.git
@@ -15,7 +15,7 @@ dependencies:
 allowed-tools: python3 python
 metadata:
   author: backupdev
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 ## Parameters
@@ -53,7 +53,7 @@ optional:
   candidates match, show the candidates and ask before changing files.
 - For a same-document replacement, copy or move `replacement-source` to the
   existing target path under `sources/originals/`. This preserves stable
-  resource identity and lets `resource-sync-index --transcript-policy changed`
+  resource identity and lets `skillbag-resource-sync-index --transcript-policy changed`
   refresh stale derivatives.
 - For a new named version that should coexist with the old one, ingest or place
   it as a new original under the same collection path. Remove or archive the old
@@ -61,11 +61,11 @@ optional:
   authoritative.
 - For a hard removal, remove only the canonical original unless the user also
   asks to physically prune generated derivatives.
-- After any apply-mode update, run `resource-sync-index` with source-truth
+- After any apply-mode update, run `skillbag-resource-sync-index` with source-truth
   enforcement:
 
 ```bash
-python3 .skills/resource-sync-index/scripts/resource_sync_index.py \
+python3 .skills/skillbag-resource-sync-index/scripts/resource_sync_index.py \
   --resource-root <resource-root> \
   --mode apply \
   --chunk-policy changed-only \
@@ -93,7 +93,7 @@ python3 .skills/resource-sync-index/scripts/resource_sync_index.py \
 ## File Boundaries
 
 - May read and modify files under `resource-root/sources/originals/`.
-- May run `resource-sync-index` to update `resource-root/store/` and generated
+- May run `skillbag-resource-sync-index` to update `resource-root/store/` and generated
   derivatives.
 - Must not delete originals, replacements, or generated derivatives without an
   explicit user instruction or an apply-mode command that names the target.

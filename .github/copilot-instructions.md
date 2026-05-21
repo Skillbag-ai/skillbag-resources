@@ -6,5 +6,5 @@ Preserve the SkillBag structure:
 - each skill lives at `.skills/<name>/SKILL.md`.
 - skill names are lowercase hyphenated identifiers.
 
-Resource-root structure belongs in `resource-scaffold`; other skills should
+Resource-root structure belongs in `skillbag-resource-scaffold`; other skills should
 depend on it instead of defining competing folder layouts.

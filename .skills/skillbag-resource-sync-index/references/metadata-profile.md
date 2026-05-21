@@ -1,6 +1,6 @@
 # Metadata Profile
 
-`resource-sync-index` can read `metadata.profile.json` from the resource root
+`skillbag-resource-sync-index` can read `metadata.profile.json` from the resource root
 or from `--metadata-profile`.
 
 The profile lets a workspace provide metadata extraction rules
@@ -74,7 +74,7 @@ Rules:
   so agents can make consistent ingest and metadata decisions without relying
   on conversation history.
 - `embeddings.policy=on-ingest` means ingest/update workflows should run
-  `resource-sync-index` with `--embed --write-lancedb --write-sqlite` unless
+  `skillbag-resource-sync-index` with `--embed --write-lancedb --write-sqlite` unless
   the user explicitly disables embeddings.
 - `path_rules` use shell-style glob patterns against resource-root-relative
   paths.

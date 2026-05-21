@@ -1,8 +1,8 @@
 ---
-name: resource-ingest
-description: Add, import, collect, or organize files, links, documents, datasets, or messy drops into an existing knowledge base, corpus, reference library, context library, data room, or resource root. #use/resource-scaffold #use/skillbag-python-ensure
+name: skillbag-resource-ingest
+description: Add, import, collect, or organize files, links, documents, datasets, or messy drops into an existing knowledge base, corpus, reference library, context library, data room, or resource root. #use/skillbag-resource-scaffold #use/skillbag-python-ensure
 dependencies:
-  - name: resource-scaffold
+  - name: skillbag-resource-scaffold
     required: true
   - name: skillbag-python-ensure
     source: git@github.com:Skillbag-ai/skillbag-utils.git
@@ -11,7 +11,7 @@ dependencies:
 allowed-tools: python3 python
 metadata:
   author: backupdev
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 ## Parameters
@@ -39,7 +39,7 @@ optional:
   store, including wording such as "add to the knowledge base", "collect these
   docs", "ingest this data", "organize this data room", or "put this in the
   reference library".
-- Use `resource-scaffold` first to validate the resource root.
+- Use `skillbag-resource-scaffold` first to validate the resource root.
 - Read the resource root `README.md`, `resource.yaml`, and
   `metadata.profile.json` before choosing target paths. The resource purpose is
   part of the ingest contract and should drive source structure, metadata, and
@@ -57,15 +57,15 @@ optional:
   Ask before moving or copying uncertain files when `ambiguity-policy=ask`.
 - Do not generate transcripts, structured derivatives, summaries, chunks, or
   embeddings during ingestion. Leave expensive or processor-dependent work to
-  `resource-sync-index`.
+  `skillbag-resource-sync-index`.
 - If a placed file appears to need downstream processing, record the suggested
   capability in the ingest summary without selecting or running a processor.
 - Record an ingest run in `store/state/ingest-runs.jsonl`.
-- After apply-mode ingestion, run `resource-sync-index` with embeddings unless
+- After apply-mode ingestion, run `skillbag-resource-sync-index` with embeddings unless
   the user explicitly disables them:
 
 ```bash
-python3 .skills/resource-sync-index/scripts/resource_sync_index.py \
+python3 .skills/skillbag-resource-sync-index/scripts/resource_sync_index.py \
   --resource-root <resource-root> \
   --mode apply \
   --chunk-policy changed-only \
@@ -79,7 +79,7 @@ python3 .skills/resource-sync-index/scripts/resource_sync_index.py \
 ```
 
 - For replacing, superseding, or removing an existing canonical resource, use
-  `resource-update` instead of treating the operation as a new messy ingest.
+  `skillbag-resource-update` instead of treating the operation as a new messy ingest.
 
 ## Outputs
 

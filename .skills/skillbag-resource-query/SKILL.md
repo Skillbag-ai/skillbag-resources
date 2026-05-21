@@ -1,8 +1,8 @@
 ---
-name: resource-query
-description: Find, search, retrieve, or answer from a local knowledge base, corpus, reference library, context library, data room, resource store, or indexed collection using metadata, summaries, keywords, or vector similarity. #use/resource-scaffold #use/skillbag-python-ensure
+name: skillbag-resource-query
+description: Find, search, retrieve, or answer from a local knowledge base, corpus, reference library, context library, data room, resource store, or indexed collection using metadata, summaries, keywords, or vector similarity. #use/skillbag-resource-scaffold #use/skillbag-python-ensure
 dependencies:
-  - name: resource-scaffold
+  - name: skillbag-resource-scaffold
     required: true
   - name: skillbag-python-ensure
     source: git@github.com:Skillbag-ai/skillbag-utils.git
@@ -11,7 +11,7 @@ dependencies:
 allowed-tools: python3 python
 metadata:
   author: backupdev
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 ## Parameters
@@ -36,13 +36,13 @@ optional:
   collected material, including wording such as "search the knowledge base",
   "what do we know about", "find in the corpus", "retrieve from resources", or
   "use the indexed reference library".
-- Use `resource-scaffold` first to validate the resource root.
+- Use `skillbag-resource-scaffold` first to validate the resource root.
 - Load the configured local backend from `resource.yaml`.
 - For cheap local search over the portable state files, prefer the bundled
   helper:
 
   ```bash
-  python3 .skills/resource-query/scripts/resource_query.py --resource-root <resource-root> --query "<query>" --mode hybrid --top-k 10
+  python3 .skills/skillbag-resource-query/scripts/resource_query.py --resource-root <resource-root> --query "<query>" --mode hybrid --top-k 10
   ```
 
 - Support these query modes:

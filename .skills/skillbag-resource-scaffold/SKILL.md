@@ -1,5 +1,5 @@
 ---
-name: resource-scaffold
+name: skillbag-resource-scaffold
 description: Create, set up, initialize, or validate a portable knowledge base, corpus, reference library, context library, data room, or resource root with persisted purpose, sources, derivatives, metadata, summaries, chunks, and vector indexes. #use/skillbag-python-ensure
 dependencies:
   - name: skillbag-python-ensure
@@ -9,7 +9,7 @@ dependencies:
 allowed-tools: python3 python
 metadata:
   author: backupdev
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 ## Parameters
@@ -111,7 +111,7 @@ resources/
 - Prefer the bundled helper script for deterministic scaffold creation:
 
   ```bash
-  python3 .skills/resource-scaffold/scripts/resource_scaffold.py \
+  python3 .skills/skillbag-resource-scaffold/scripts/resource_scaffold.py \
     --resource-root <resource-root> \
     --purpose "<what this resource library is for>"
   ```

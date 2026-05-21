@@ -1,8 +1,8 @@
 ---
-name: resource-sync-index
-description: Sync, index, refresh, rebuild, transcribe, summarize, chunk, or embed added, changed, or removed files in a knowledge base, corpus, reference library, context library, data room, or resource root. #use/resource-scaffold #use/document-to-markdown-transcript #use/media-transcript #use/skillbag-python-ensure
+name: skillbag-resource-sync-index
+description: Sync, index, refresh, rebuild, transcribe, summarize, chunk, or embed added, changed, or removed files in a knowledge base, corpus, reference library, context library, data room, or resource root. #use/skillbag-resource-scaffold #use/document-to-markdown-transcript #use/media-transcript #use/skillbag-python-ensure
 dependencies:
-  - name: resource-scaffold
+  - name: skillbag-resource-scaffold
     required: true
   - name: document-to-markdown-transcript
     source: git@github.com:Skillbag-ai/skillbag-docs.git
@@ -23,7 +23,7 @@ dependencies:
 allowed-tools: python3 python
 metadata:
   author: backupdev
-  version: 0.1.1
+  version: 0.2.0
 ---
 
 ## Parameters
@@ -68,10 +68,10 @@ optional:
   searchable, cheap to inspect, or up to date, including wording such as "sync
   the knowledge base", "index this corpus", "rebuild embeddings", "generate
   summaries", or "make this data searchable".
-- Use `resource-scaffold` first to validate the resource root.
+- Use `skillbag-resource-scaffold` first to validate the resource root.
 - Prefer the bundled delta/index script instead of having the main agent read
   the corpus:
-  `python3 .skills/resource-sync-index/scripts/resource_sync_index.py --resource-root <resource-root> --mode plan`
+  `python3 .skills/skillbag-resource-sync-index/scripts/resource_sync_index.py --resource-root <resource-root> --mode plan`
 - Use `--mode apply` to update `store/state/file-state.jsonl` and, when text
   chunks are selected, `store/state/chunks.jsonl`.
 - Use `--transcript-policy missing` to generate missing transcripts before
