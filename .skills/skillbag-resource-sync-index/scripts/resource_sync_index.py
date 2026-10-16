@@ -1100,17 +1100,26 @@ def main() -> None:
     changed_paths = {r.target_path for r in delta["added"] + delta["changed"]}
     removed_paths = {r["target_path"] for r in delta["removed"] if "target_path" in r}
     healed = 0
-    if args.chunk_policy == "changed-only" and chunk_store.shard_files(state_dir):
+    if args.chunk_policy == "changed-only" and not (state_dir / chunk_store.LEGACY).exists():
         # Self-heal from the shards themselves: a shard whose file sha differs, a missing shard
         # or a shard for a file that is gone is repaired even if file-state says nothing changed.
+        # Skipped until a legacy chunks.jsonl is migrated, so migration does not re-chunk everything.
         shards = chunk_store.shard_index(state_dir)
+        chunking = profile.get("chunking", {})
+        max_chars = int(chunking.get("max_chars", 1800))
+        overlap_chars = int(chunking.get("overlap_chars", 250))
         for record in current:
             if record.target_path in changed_paths or not is_text_index_candidate(record):
                 continue
             entry = shards.get(record.target_path)
-            if entry is None or entry["sha256"] != record.sha256:
-                changed_paths.add(record.target_path)
-                healed += 1
+            if entry is None:
+                # Empty or whitespace-only files have no chunks and therefore no shard.
+                if not record_chunks(resource_root / record.target_path, max_chars, overlap_chars):
+                    continue
+            elif entry["sha256"] == record.sha256:
+                continue
+            changed_paths.add(record.target_path)
+            healed += 1
         orphaned = set(shards) - {record.target_path for record in current} - removed_paths
         removed_paths |= orphaned
         healed += len(orphaned)

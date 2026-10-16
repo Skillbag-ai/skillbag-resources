@@ -81,8 +81,8 @@ optional:
   indexed file (`store/state/chunks/<target-path>.jsonl`, vectors as base64
   float16). A sync rewrites only the shards of changed files, deletes shards of
   removed files, keeps stored embeddings when a run does not embed, and repairs
-  shards that no longer match their file even when file state says nothing
-  changed. A legacy `store/state/chunks.jsonl` is migrated to shards on the
+  shards that are missing or no longer match their file even when file state
+  says nothing changed (files without text need no shard). A legacy `store/state/chunks.jsonl` is migrated to shards on the
   next apply or `--rebuild-caches`, keeping its embeddings; existing shards
   take precedence.
 - When migrating a resource root whose caches were committed, also run

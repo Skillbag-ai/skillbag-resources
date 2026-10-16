@@ -6,7 +6,8 @@
   `store/state/chunks/` (embeddings as base64 float16) instead of a single
   `store/state/chunks.jsonl` that grew with the corpus and was rewritten on
   every sync. Syncs rewrite only changed shards, keep stored embeddings when a
-  run does not embed, and repair shards that no longer match their files.
+  run does not embed, and repair shards that are missing or no longer match
+  their files (empty files need no shard).
   Existing `chunks.jsonl` files migrate automatically, keeping embeddings.
 - Treat LanceDB and SQLite as local caches built from the shards without
   re-embedding. Caches record a content hash computed from the shard files and
