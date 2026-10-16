@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,20 @@ STOPWORDS = {
 }
 CONTROL_ID_RE = re.compile(r"\b\d+(?:\.\d+){1,}\b")
 
+
+
+def load_chunk_store():
+    """Import chunk_store.py from the sibling sync-index skill, if installed."""
+    skills_root = Path(__file__).resolve().parents[2]
+    for candidate in sorted(skills_root.glob("*resource-sync-index/scripts/chunk_store.py")):
+        sys.path.insert(0, str(candidate.parent))
+        try:
+            import chunk_store  # noqa: PLC0415
+
+            return chunk_store
+        except Exception:
+            continue
+    return None
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
@@ -183,14 +198,20 @@ def vector_rows_from_jsonl(
     filters: dict[str, str],
     source_index: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
+    try:
+        import numpy as np  # optional: speeds up in-memory search
+
+        candidates = [row for row in chunks if row.get("vector") and matches_filters(row, filters)]
+        scores = (np.asarray([row["vector"] for row in candidates], dtype="float32") @ np.asarray(query_vector, dtype="float32")).tolist() if candidates else []
+        scored = list(zip(candidates, scores))
+    except ImportError:
+        scored = [
+            (row, sum(float(a) * float(b) for a, b in zip(query_vector, row["vector"])))
+            for row in chunks
+            if row.get("vector") and matches_filters(row, filters)
+        ]
     rows = []
-    for row in chunks:
-        if not matches_filters(row, filters):
-            continue
-        vector = row.get("vector")
-        if not vector:
-            continue
-        score = sum(float(a) * float(b) for a, b in zip(query_vector, vector))
+    for row, score in scored:
         source = source_index.get(row.get("resource_id")) or source_index.get(row.get("target_path")) or {}
         excerpt = re.sub(r"\s+", " ", row.get("text", "")).strip()[:500]
         rows.append(
@@ -224,7 +245,14 @@ def main() -> int:
     model_name = profile.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")
     resources = read_jsonl(state_root / "file-state.jsonl")
     summaries = read_jsonl(state_root / "summaries.jsonl")
-    chunks = read_jsonl(state_root / "chunks.jsonl")
+    chunk_store = load_chunk_store()
+    if chunk_store is None and (state_root / "chunks").exists():
+        raise SystemExit(
+            "store/state/chunks/ holds sharded chunks, but chunk_store.py from "
+            "skillbag-resource-sync-index 0.3.0 or later is not installed next to this skill"
+        )
+    chunks = chunk_store.read_chunks(state_root) if chunk_store else read_jsonl(state_root / "chunks.jsonl")
+    index_notes: list[str] = []
     filters = parse_filters(args.filter)
     terms = query_terms(args.query)
 
@@ -315,7 +343,15 @@ def main() -> int:
 
     if args.mode in {"vector", "hybrid"}:
         query_vector = encode_query(args.query, model_name)
-        vector_rows = vector_rows_from_lancedb(root, query_vector, args.top_k, filters, source_index)
+        # Read-only: use the LanceDB cache only when it matches the committed chunks; otherwise
+        # search the chunk vectors in memory and say how to rebuild the cache.
+        cache_fresh = chunk_store is None or not chunk_store.stale_caches(root, ["lancedb"])
+        vector_rows = vector_rows_from_lancedb(root, query_vector, args.top_k, filters, source_index) if cache_fresh else []
+        if not cache_fresh:
+            index_notes.append(
+                "LanceDB cache missing or stale; searched chunk vectors in memory. Rebuild it with "
+                "resource_sync_index.py --resource-root <root> --rebuild-caches"
+            )
         if not vector_rows:
             vector_rows = vector_rows_from_jsonl(chunks, query_vector, args.top_k, filters, source_index)
         results.extend(vector_rows)
@@ -332,6 +368,7 @@ def main() -> int:
             "chunks": len(chunks),
         },
         "count": min(len(results), args.top_k),
+        "index_notes": index_notes,
         "results": results[: args.top_k],
     }
     print(json.dumps(output, indent=2, sort_keys=True))

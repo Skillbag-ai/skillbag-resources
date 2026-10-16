@@ -169,9 +169,9 @@ resources/
     media/
     normalized/
   store/
-    state/
-    lancedb/
-    sqlite/
+    state/        canonical index (file state, summaries, chunk shards); commit when versioning the root
+    lancedb/      local cache, rebuilt from store/state (not committed)
+    sqlite/       local cache, rebuilt from store/state (not committed)
   staging/
 ```
 

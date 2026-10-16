@@ -9,7 +9,7 @@ dependencies:
 allowed-tools: python3 python
 metadata:
   author: backupdev
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 ## Parameters
@@ -75,7 +75,7 @@ resources/
       ingest-runs.jsonl
       sync-runs.jsonl
       summaries.jsonl
-      chunks.jsonl
+      chunks/
     exports/
   staging/
     incoming/
@@ -104,6 +104,9 @@ resources/
     processors when the corresponding public SkillBags are installed
 - `store/sqlite/` is the portable fallback database location when LanceDB is
   unavailable.
+- Write a resource-root `.gitignore` excluding `store/lancedb/` and
+  `store/sqlite/`: both are local caches rebuilt from `store/state/`, which is
+  the state to commit.
 - Do not define project names, organization names, knowledge categories, or
   organization-specific resource taxonomy.
 - If an existing resource root uses another structure, report the mismatch

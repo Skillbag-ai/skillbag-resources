@@ -1,4 +1,4 @@
-SKILLBAG RESOURCES v0.2.0
+SKILLBAG RESOURCES v0.3.0
 
 This repository is a `SKILLBAG` source.
 Installed resource-management skills live under `.skills/`.

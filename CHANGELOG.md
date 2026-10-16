@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.0
+
+- Store chunks and embeddings as one small JSONL shard per indexed file under
+  `store/state/chunks/` (embeddings as base64 float16) instead of a single
+  `store/state/chunks.jsonl` that grew with the corpus and was rewritten on
+  every sync. Syncs rewrite only changed shards, keep stored embeddings when a
+  run does not embed, and repair shards that no longer match their files.
+  Existing `chunks.jsonl` files migrate automatically, keeping embeddings.
+- Treat LanceDB and SQLite as local caches built from the shards without
+  re-embedding. Caches record a content hash computed from the shard files and
+  are stale when it differs; `skillbag-resource-sync-index --rebuild-caches`
+  recreates them, rebuilds keep no old LanceDB versions, and the SQLite cache
+  stores no vectors. `skillbag-resource-query` stays read-only: with a missing
+  or stale cache it searches the shard vectors in memory and says so.
+- Write file state after chunks and embeddings, so a failed sync is repeated
+  instead of silently skipped; keep the committed sync-runs log compact.
+- `skillbag-resource-scaffold` and migration add a resource-root `.gitignore`
+  for the caches. When migrating a root whose caches were committed, run
+  `git rm -r --cached store/lancedb store/sqlite` in it.
+- Read JSONL state on newlines only, so text containing U+2028 or U+2029 no
+  longer breaks parsing; discover a document transcript helper vendored next
+  to the skill.
+
 ## 0.2.0
 
 - Renamed the public resource skills from `resource-*` to

@@ -23,7 +23,7 @@ dependencies:
 allowed-tools: python3 python
 metadata:
   author: backupdev
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 ## Parameters
@@ -54,6 +54,8 @@ optional:
     default: false
   - name: write-sqlite
     default: false
+  - name: rebuild-caches
+    default: false
   - name: transcript-script
     default: auto
   - name: source-truth
@@ -73,7 +75,19 @@ optional:
   the corpus:
   `python3 .skills/skillbag-resource-sync-index/scripts/resource_sync_index.py --resource-root <resource-root> --mode plan`
 - Use `--mode apply` to update `store/state/file-state.jsonl` and, when text
-  chunks are selected, `store/state/chunks.jsonl`.
+  chunks are selected, the chunk shards under `store/state/chunks/`.
+- `store/state/` is the canonical index; commit it when the workspace versions
+  its resource root. Chunks and embeddings live in one small JSONL shard per
+  indexed file (`store/state/chunks/<target-path>.jsonl`, vectors as base64
+  float16). A sync rewrites only the shards of changed files, deletes shards of
+  removed files, keeps stored embeddings when a run does not embed, and repairs
+  shards that no longer match their file even when file state says nothing
+  changed. A legacy `store/state/chunks.jsonl` is migrated to shards on the
+  next apply or `--rebuild-caches`, keeping its embeddings; existing shards
+  take precedence.
+- When migrating a resource root whose caches were committed, also run
+  `git rm -r --cached store/lancedb store/sqlite` in it; migration adds the
+  `.gitignore` entries.
 - Use `--transcript-policy missing` to generate missing transcripts before
   scanning and chunking. Use `changed`, `force`, or `skip` when needed.
 - Use `--summary-policy missing` to generate or refresh cheap resource-level
@@ -108,8 +122,15 @@ optional:
   vector table should be refreshed under `store/lancedb/`. If LanceDB is
   unavailable, the bundled script writes a SQLite fallback database under
   `store/sqlite/resources.db`.
-- Use `--write-sqlite` with `--embed` to write the SQLite fallback database
-  directly.
+- Use `--write-sqlite` to write the compact SQLite fallback database directly.
+  SQLite keeps resource, summary, chunk text, metadata and embedding-model
+  fields but no vector payloads; vectors live in the chunk shards and LanceDB.
+- `store/lancedb/` and `store/sqlite/` are local caches built from the shards
+  without re-embedding; keep them out of Git. After a clone or pull, run
+  `--rebuild-caches` (no scan, no embedding) or let `skillbag-resource-query`
+  search the shard vectors in memory until the cache is rebuilt. Caches record
+  a content hash of the shard files, so a pull, merge or checkout that changes
+  shards marks them stale.
 - Load workspace metadata rules from `metadata.profile.json` by default.
   See [`references/metadata-profile.md`](references/metadata-profile.md).
 - Read the resource purpose from `resource.yaml`, `metadata.profile.json`, or
@@ -143,7 +164,8 @@ optional:
   - chunk records
   - embedding vectors
   - removal/tombstone records for deleted files
-- Preferred backend: local LanceDB under `store/lancedb/`.
+- Preferred backend: local LanceDB under `store/lancedb/`, rebuilt as a cache
+  from the committed shards.
 - Keep sync idempotent. Re-running without file changes should report no
   material updates.
 
@@ -152,8 +174,8 @@ optional:
 - `resources`: one row per source or external source record.
 - `derivatives`: one row per transcript, structured extraction, media
   transcript, or normalized artifact.
-- `chunks`: chunk text, embedding vector, source/derivative IDs, offsets, and
-  metadata.
+- `chunks`: chunk text, source/derivative IDs, offsets, metadata and
+  embedding model; vectors stay in the chunk shards and LanceDB.
 - `summaries`: one compact discovery row per summarized resource, including
   title, summary text, keywords, source hash, and metadata.
 - `events`: sync and ingest events for auditability.

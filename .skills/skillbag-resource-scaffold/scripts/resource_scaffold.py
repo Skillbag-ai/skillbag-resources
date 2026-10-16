@@ -19,6 +19,7 @@ DIRECTORIES = [
     "store/lancedb",
     "store/sqlite",
     "store/state",
+    "store/state/chunks",
     "store/exports",
     "staging/incoming",
     "staging/quarantine",
@@ -29,8 +30,10 @@ STATE_FILES = [
     "store/state/ingest-runs.jsonl",
     "store/state/sync-runs.jsonl",
     "store/state/summaries.jsonl",
-    "store/state/chunks.jsonl",
 ]
+
+# LanceDB and SQLite are local caches rebuilt from store/state; keep them out of Git.
+GITIGNORE = "store/lancedb/\nstore/sqlite/\n"
 
 
 def write_if_missing(path: Path, content: str, overwrite: bool) -> bool:
@@ -157,6 +160,13 @@ def main() -> int:
     for rel, content in files.items():
         if write_if_missing(root / rel, content, args.overwrite):
             written_files.append(rel)
+
+    gitignore = root / ".gitignore"
+    existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
+    missing = [line for line in GITIGNORE.splitlines() if line not in existing.splitlines()]
+    if missing:
+        gitignore.write_text(existing + ("" if not existing or existing.endswith("\n") else "\n") + "\n".join(missing) + "\n", encoding="utf-8")
+        written_files.append(".gitignore")
 
     for rel in STATE_FILES:
         path = root / rel

@@ -4,6 +4,8 @@ description: Find, search, retrieve, or answer from a local knowledge base, corp
 dependencies:
   - name: skillbag-resource-scaffold
     required: true
+  - name: skillbag-resource-sync-index
+    required: true
   - name: skillbag-python-ensure
     source: git@github.com:Skillbag-ai/skillbag-utils.git
     version: main
@@ -11,7 +13,7 @@ dependencies:
 allowed-tools: python3 python
 metadata:
   author: backupdev
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 ## Parameters
@@ -56,9 +58,13 @@ optional:
   This is mandatory for standards and control matrices where a literal control
   ID or control title can be more reliable than embedding similarity.
 - The bundled helper supports metadata, summary, keyword, and hybrid search
-  over `store/state/file-state.jsonl`, `store/state/summaries.jsonl`, and
-  `store/state/chunks.jsonl`. Vector search requires the configured vector
-  backend or JSONL vectors to be available.
+  over `store/state/file-state.jsonl`, `store/state/summaries.jsonl`, and the
+  chunk shards under `store/state/chunks/` (or a legacy
+  `store/state/chunks.jsonl`). Vector search uses the local LanceDB cache when
+  it matches the committed shards; when the cache is missing or stale (for
+  example after a clone or pull) it searches the shard vectors in memory and
+  adds an `index_notes` entry recommending
+  `resource_sync_index.py --rebuild-caches`. The query never writes.
 - Vector mode uses the configured local Hugging Face SentenceTransformer model,
   normally `sentence-transformers/all-MiniLM-L6-v2`. It must not call the
   ChatGPT/OpenAI API. The first run may download the model from Hugging Face if

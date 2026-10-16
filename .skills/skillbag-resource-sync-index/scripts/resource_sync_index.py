@@ -7,7 +7,10 @@ The script is intentionally local-first:
 - chunks text derivatives without asking the main agent to read them
 - writes compact resource summaries for cheap later discovery
 - optionally embeds chunks with a local Hugging Face SentenceTransformer
-- optionally writes a LanceDB `chunks` table when lancedb is installed
+- stores chunks and embeddings as one small JSONL shard per file under
+  store/state/chunks/ (see chunk_store.py), which is the state to commit
+- builds LanceDB and SQLite as local caches from those shards; --rebuild-caches
+  recreates them after a clone without re-embedding
 """
 
 from __future__ import annotations
@@ -19,12 +22,15 @@ import fnmatch
 import hashlib
 import json
 import re
-import sqlite3
+import sys
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import chunk_store  # noqa: E402
 
 
 TEXT_SUFFIXES = {".md", ".txt", ".csv", ".json", ".jsonl", ".yaml", ".yml"}
@@ -156,7 +162,9 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     rows = []
-    for line in path.read_text().splitlines():
+    # Split on newlines only: str.splitlines() also breaks at U+2028 and
+    # similar separators that json.dumps leaves unescaped inside strings.
+    for line in path.read_text().split("\n"):
         if line.strip():
             rows.append(json.loads(line))
     return rows
@@ -181,6 +189,17 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def compact_log_entry(value: Any, limit: int = 20) -> Any:
+    """Keep the committed sync-runs log small: long lists become a count and a short sample."""
+    if isinstance(value, dict):
+        return {key: compact_log_entry(item, limit) for key, item in value.items()}
+    if isinstance(value, list):
+        if len(value) > limit:
+            return {"count": len(value), "sample": [compact_log_entry(item, limit) for item in value[:5]]}
+        return [compact_log_entry(item, limit) for item in value]
+    return value
 
 
 def stable_id(text: str) -> str:
@@ -449,7 +468,14 @@ def default_document_transcript_script() -> Path | None:
         workspace_root
         / "skillbag-docs/.skills/document-to-markdown-transcript/scripts/document_to_markdown_transcript.py"
     )
-    return script if script.exists() else None
+    if script.exists():
+        return script
+    # Consumer projects vendor sibling skills next to this one under .skills/.
+    vendored = (
+        Path(__file__).resolve().parents[2]
+        / "document-to-markdown-transcript/scripts/document_to_markdown_transcript.py"
+    )
+    return vendored if vendored.exists() else None
 
 
 def default_media_transcript_script() -> Path | None:
@@ -994,17 +1020,6 @@ def build_chunk_rows(
     return rows
 
 
-def merge_chunk_rows(
-    existing_rows: list[dict[str, Any]],
-    new_rows: list[dict[str, Any]],
-    changed_paths: set[str],
-    removed_paths: set[str],
-) -> list[dict[str, Any]]:
-    stale_paths = changed_paths | removed_paths
-    kept = [row for row in existing_rows if row.get("target_path") not in stale_paths]
-    return kept + new_rows
-
-
 def embed_rows(rows: list[dict[str, Any]], model_name: str) -> list[dict[str, Any]]:
     try:
         from sentence_transformers import SentenceTransformer
@@ -1018,160 +1033,6 @@ def embed_rows(rows: list[dict[str, Any]], model_name: str) -> list[dict[str, An
         row["vector"] = vector.tolist()
         row["embedding_model"] = model_name
     return rows
-
-
-def write_lancedb(resource_root: Path, rows: list[dict[str, Any]]) -> None:
-    try:
-        import lancedb
-    except Exception as exc:  # pragma: no cover - dependency is optional
-        raise RuntimeError(f"lancedb is unavailable: {exc}") from exc
-
-    db = lancedb.connect(str(resource_root / "store/lancedb"))
-    if rows:
-        db.create_table("chunks", data=rows, mode="overwrite")
-
-
-def write_sqlite(
-    resource_root: Path,
-    resources: list[FileRecord],
-    chunks: list[dict[str, Any]],
-    summaries: list[dict[str, Any]],
-) -> Path:
-    db_path = resource_root / "store/sqlite/resources.db"
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(db_path) as conn:
-        conn.execute("drop table if exists resources")
-        conn.execute("drop table if exists summaries")
-        conn.execute("drop table if exists chunks")
-        conn.execute(
-            """
-            create table resources (
-              id text primary key,
-              target_path text not null,
-              kind text not null,
-              size integer not null,
-              mtime_ns integer not null,
-              sha256 text not null,
-              metadata_json text not null,
-              status text not null
-            )
-            """
-        )
-        conn.execute(
-            """
-            create table summaries (
-              id text primary key,
-              resource_id text not null,
-              target_path text not null,
-              kind text not null,
-              title text not null,
-              summary text not null,
-              summary_backend text,
-              summary_model text,
-              summary_fallback_reason text,
-              keywords_json text not null,
-              metadata_json text not null,
-              sha256 text not null,
-              updated_at text not null
-            )
-            """
-        )
-        conn.execute(
-            """
-            create table chunks (
-              id text primary key,
-              resource_id text not null,
-              target_path text not null,
-              chunk_index integer not null,
-              start_char integer not null,
-              end_char integer not null,
-              text text not null,
-              metadata_json text not null,
-              sha256 text not null,
-              embedding_model text,
-              vector_json text,
-              updated_at text not null
-            )
-            """
-        )
-        conn.executemany(
-            """
-            insert into resources
-            (id, target_path, kind, size, mtime_ns, sha256, metadata_json, status)
-            values (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    row.id,
-                    row.target_path,
-                    row.kind,
-                    row.size,
-                    row.mtime_ns,
-                    row.sha256,
-                    json.dumps(row.metadata, sort_keys=True),
-                    row.status,
-                )
-                for row in resources
-            ],
-        )
-        conn.executemany(
-            """
-            insert into summaries
-            (id, resource_id, target_path, kind, title, summary, summary_backend,
-             summary_model, summary_fallback_reason, keywords_json, metadata_json,
-             sha256, updated_at)
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    row["id"],
-                    row["resource_id"],
-                    row["target_path"],
-                    row["kind"],
-                    row["title"],
-                    row["summary"],
-                    row.get("summary_backend"),
-                    row.get("summary_model"),
-                    row.get("summary_fallback_reason"),
-                    json.dumps(row.get("keywords", []), sort_keys=True),
-                    json.dumps(row["metadata"], sort_keys=True),
-                    row["sha256"],
-                    row["updated_at"],
-                )
-                for row in summaries
-            ],
-        )
-        conn.executemany(
-            """
-            insert into chunks
-            (id, resource_id, target_path, chunk_index, start_char, end_char, text,
-             metadata_json, sha256, embedding_model, vector_json, updated_at)
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    row["id"],
-                    row["resource_id"],
-                    row["target_path"],
-                    row["chunk_index"],
-                    row["start_char"],
-                    row["end_char"],
-                    row["text"],
-                    json.dumps(row["metadata"], sort_keys=True),
-                    row["sha256"],
-                    row.get("embedding_model"),
-                    json.dumps(row.get("vector")) if row.get("vector") is not None else None,
-                    row["updated_at"],
-                )
-                for row in chunks
-            ],
-        )
-        conn.execute("create index idx_resources_target_path on resources(target_path)")
-        conn.execute("create index idx_summaries_resource_id on summaries(resource_id)")
-        conn.execute("create index idx_summaries_target_path on summaries(target_path)")
-        conn.execute("create index idx_chunks_resource_id on chunks(resource_id)")
-        conn.execute("create index idx_chunks_target_path on chunks(target_path)")
-    return db_path
 
 
 def main() -> None:
@@ -1189,6 +1050,11 @@ def main() -> None:
     parser.add_argument("--write-lancedb", action="store_true")
     parser.add_argument("--write-sqlite", action="store_true")
     parser.add_argument("--model")
+    parser.add_argument(
+        "--rebuild-caches",
+        action="store_true",
+        help="Only rebuild the local LanceDB and SQLite caches from store/state, without scanning or embedding",
+    )
     args = parser.parse_args()
 
     resource_root = args.resource_root
@@ -1206,9 +1072,11 @@ def main() -> None:
     )
     state_dir = resource_root / "store/state"
     file_state_path = state_dir / "file-state.jsonl"
-    chunks_path = state_dir / "chunks.jsonl"
     summaries_path = state_dir / "summaries.jsonl"
     sync_runs_path = state_dir / "sync-runs.jsonl"
+    if args.rebuild_caches:
+        print(json.dumps(chunk_store.rebuild_caches(resource_root, only_stale=False), indent=2, sort_keys=True))
+        return
 
     transcript_report = ensure_transcripts(
         resource_root=resource_root,
@@ -1231,6 +1099,21 @@ def main() -> None:
     delta = diff_records(current, previous_rows)
     changed_paths = {r.target_path for r in delta["added"] + delta["changed"]}
     removed_paths = {r["target_path"] for r in delta["removed"] if "target_path" in r}
+    healed = 0
+    if args.chunk_policy == "changed-only" and chunk_store.shard_files(state_dir):
+        # Self-heal from the shards themselves: a shard whose file sha differs, a missing shard
+        # or a shard for a file that is gone is repaired even if file-state says nothing changed.
+        shards = chunk_store.shard_index(state_dir)
+        for record in current:
+            if record.target_path in changed_paths or not is_text_index_candidate(record):
+                continue
+            entry = shards.get(record.target_path)
+            if entry is None or entry["sha256"] != record.sha256:
+                changed_paths.add(record.target_path)
+                healed += 1
+        orphaned = set(shards) - {record.target_path for record in current} - removed_paths
+        removed_paths |= orphaned
+        healed += len(orphaned)
     chunk_filter = changed_paths if args.chunk_policy == "changed-only" else None
     summary_rows = build_summary_rows(
         resource_root=resource_root,
@@ -1266,40 +1149,43 @@ def main() -> None:
         },
     }
 
+    report["counts"]["self_healed"] = healed
+
     if args.mode == "apply":
-        rows = [record.as_json() for record in current] + delta["removed"]
-        write_jsonl(file_state_path, rows)
+        if args.write_lancedb and not args.embed:
+            raise SystemExit("--write-lancedb requires --embed")
+        if args.embed:
+            chunk_rows = embed_rows(chunk_rows, model_name)
+        report["chunk_store"] = chunk_store.migrate_legacy(state_dir)
+        store = chunk_store.save_chunks(
+            state_dir,
+            chunk_rows,
+            changed_paths if args.chunk_policy == "changed-only" else None,
+            removed_paths,
+        )
+        report["counts"]["chunks"] = store["chunks"]
+        report["counts"]["chunk_shards"] = store["shards"]
         final_summary_rows = merge_summary_rows(existing_summary_rows, summary_rows, removed_paths)
         report["counts"]["summaries"] = len(final_summary_rows)
         if summary_rows or removed_paths or args.summary_policy == "force":
             write_jsonl(summaries_path, final_summary_rows)
-        if args.embed:
-            chunk_rows = embed_rows(chunk_rows, model_name)
-        if args.chunk_policy == "changed-only":
-            final_chunk_rows = merge_chunk_rows(read_jsonl(chunks_path), chunk_rows, changed_paths, removed_paths)
-        else:
-            final_chunk_rows = chunk_rows
-        if chunk_rows or removed_paths or args.chunk_policy == "all":
-            write_jsonl(chunks_path, final_chunk_rows)
+        # File state last: if embedding or chunk writing fails, the next run repeats the delta.
+        rows = [record.as_json() for record in current] + delta["removed"]
+        write_jsonl(file_state_path, rows)
         written_backends = []
         backend_warnings = []
-        if args.write_lancedb:
-            if not args.embed:
-                raise SystemExit("--write-lancedb requires --embed")
-            try:
-                write_lancedb(resource_root, final_chunk_rows)
-                written_backends.append("lancedb")
-            except Exception as exc:
-                backend_warnings.append(str(exc))
-                db_path = write_sqlite(resource_root, current, final_chunk_rows, final_summary_rows)
-                written_backends.append(f"sqlite-fallback:{db_path}")
-        if args.write_sqlite:
-            db_path = write_sqlite(resource_root, current, final_chunk_rows, final_summary_rows)
-            written_backends.append(f"sqlite:{db_path}")
+        backends = [name for name, wanted in (("lancedb", args.write_lancedb), ("sqlite", args.write_sqlite)) if wanted]
+        if backends:
+            cache_report = chunk_store.rebuild_caches(resource_root, backends, only_stale=False)
+            written_backends.extend(cache_report["rebuilt"])
+            backend_warnings.extend(cache_report["warnings"])
+            if "lancedb" in backends and "lancedb" not in written_backends and "sqlite" not in backends:
+                fallback = chunk_store.rebuild_caches(resource_root, ["sqlite"], only_stale=False)
+                written_backends.extend(f"sqlite-fallback:{b}" for b in fallback["rebuilt"])
         report["written_backends"] = written_backends
         if backend_warnings:
             report["backend_warnings"] = backend_warnings
-        append_jsonl(sync_runs_path, {**report, "completed_at": utc_now()})
+        append_jsonl(sync_runs_path, {**compact_log_entry(report), "completed_at": utc_now()})
 
     print(json.dumps(report, indent=2, sort_keys=True))
 
